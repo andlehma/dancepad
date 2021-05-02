@@ -2,7 +2,7 @@
 
 #define upThreshold 400
 #define rightThreshold 500
-#define downThreshold 600
+#define downThreshold 500
 #define leftThreshold 500
 
 #define leftPin A0
@@ -26,32 +26,88 @@ CRGBArray<NUM_LEDS> leds;
 #define DOWN_LED_INDEX RIGHT_LED_INDEX + NUM_LEDS_PER_STEP
 #define LEFT_LED_INDEX DOWN_LED_INDEX + NUM_LEDS_PER_STEP
 #define UP_LED_INDEX LEFT_LED_INDEX + NUM_LEDS_PER_STEP
-int led_indices[4] = {RIGHT_LED_INDEX, UP_LED_INDEX, DOWN_LED_INDEX, LEFT_LED_INDEX};
+#define NUM_STEPS 4
+int led_indices[NUM_STEPS] = {RIGHT_LED_INDEX, UP_LED_INDEX, DOWN_LED_INDEX, LEFT_LED_INDEX};
 
-void solidColor(int offset, CRGB color) {
-  for(int i = 0; i < NUM_LEDS_PER_STEP; i++) {
-    leds[i + offset] = color;
+unsigned long startMillis;
+unsigned long currentMillis;
+
+void tick() {
+  currentMillis = millis();
+}
+
+void solidColor(int stepIndex, CRGB color) {
+  leds(stepIndex, stepIndex + NUM_LEDS_PER_STEP - 1).fill_solid(color);
+  FastLED.show();
+}
+
+void carnival(int stepIndex, CRGB color, int interval) {
+  bool odd = true;
+  if ((currentMillis / interval) % 2 == 0) {
+    odd = !odd;
+  }
+  for (int i = 0; i < NUM_LEDS_PER_STEP; i++) {
+    if ((i % 2 == 0) == odd){
+      leds[i + stepIndex] = color;
+    } else {
+      leds[i + stepIndex] = CRGB::Black;
+    }
   }
   FastLED.show();
 }
 
-void setActive(int offset) {
-  solidColor(offset, CRGB::White);
+void gamer(int stepIndex, int interval) {
+  int colorOffset = currentMillis / interval;
+  for (int i = 0; i < NUM_LEDS_PER_STEP; i++) {
+    leds[i + stepIndex] = CHSV(((i * 255) / NUM_LEDS_PER_STEP) + colorOffset, 255, 255);
+  }
+  FastLED.show();
 }
 
-void setIdle(int offset) {
-  solidColor(offset, CRGB::DeepPink);
+void swirl(int stepIndex, CRGB color, int interval) {
+  int offset = (currentMillis / interval) % NUM_LEDS_PER_STEP;
+  for (int i = 0; i < NUM_LEDS_PER_STEP; i++) {
+    if (i == offset) {
+      leds[stepIndex + i] = color;
+    } else {
+      leds[stepIndex + i] = CRGB::Black;
+    }
+  }
+  FastLED.show();
+}
+
+void rainbowSwirl(int stepIndex, int colorInterval, int movementInterval) {
+  int colorOffset = currentMillis / colorInterval;
+  int ledOffset = (currentMillis / movementInterval) % NUM_LEDS_PER_STEP;
+  for (int i = 0; i < NUM_LEDS_PER_STEP; i++) {
+    if (i == ledOffset) {
+      leds[stepIndex + i] = CHSV(((i * 255) / NUM_LEDS_PER_STEP) + colorOffset, 255, 255);
+    } else {
+      leds[stepIndex + i] = CRGB::Black;
+    }
+  }
+  FastLED.show();
+}
+
+void setActive(int stepIndex) {
+  solidColor(stepIndex, CRGB::White);
+}
+
+void setIdle(int stepIndex) {
+  gamer(stepIndex, 10);
 }
 
 void setup() {
+  startMillis = millis();
   Serial.begin(9600);
   FastLED.addLeds<LED_TYPE,DATA_PIN,COLOR_ORDER>(leds, NUM_LEDS).setCorrection(TypicalLEDStrip);
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < NUM_STEPS; i++) {
     setIdle(led_indices[i]);
   }
 }
 
 void loop() {
+  tick();
   upReading = analogRead(upPin);
   rightReading = analogRead(rightPin);
   downReading = analogRead(downPin);
